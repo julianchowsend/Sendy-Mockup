@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sendy — Design 4 v2: Complete Flow</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--pri:#FF6B35;--pri-l:#FFF3EE;--sec:#1B2838;--ok:#22C55E;--bg:#F7F8FA;--surface:#FFF;--text:#1B2838;--text2:#6B7280;--border:#E5E7EB;--r:16px;--warn:#F59E0B;--err:#EF4444}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;background:var(--sec);color:var(--text);-webkit-font-smoothing:antialiased}
+.phone{max-width:390px;margin:0 auto;background:var(--bg);height:100vh;max-height:844px;position:relative;display:flex;flex-direction:column;overflow:hidden}
+@media(min-height:845px){.phone{margin:20px auto;border-radius:40px;box-shadow:0 24px 80px rgba(0,0,0,.4)}}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0}
+.topbar-l{display:flex;align-items:center;gap:10px}
+.av{width:36px;height:36px;border-radius:50%;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+.topbar h1{font-size:16px;font-weight:700}.topbar .st{font-size:11px;color:var(--ok)}
+.topbar-btn{width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border);background:transparent;font-size:13px;cursor:pointer;color:var(--text2)}
+.chat{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}.chat::-webkit-scrollbar{width:0}
+.msg{display:flex;gap:8px;animation:up .3s}.msg.u{justify-content:flex-end}
+@keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.msg-a{width:28px;height:28px;border-radius:50%;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:2px}
+.bub{max-width:80%;padding:11px 15px;font-size:14px;line-height:1.5;border-radius:18px}
+.msg:not(.u) .bub{background:var(--surface);border:1px solid var(--border);border-bottom-left-radius:5px}
+.msg.u .bub{background:var(--sec);color:#fff;border-bottom-right-radius:5px}
+.typ span{width:6px;height:6px;border-radius:50%;background:#adb5bd;display:inline-block;animation:bo 1.4s infinite;margin-right:3px}
+.typ span:nth-child(2){animation-delay:.2s}.typ span:nth-child(3){animation-delay:.4s}
+@keyframes bo{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-3px)}}
+</style>
+</head>
+<body>
+<div class="phone" id="phone">
+<div class="topbar" id="topbar"><div class="topbar-l"><div class="av">S</div><div><h1>Sendy</h1><span class="st">● Online</span></div></div><button class="topbar-btn menu-btn" id="topbarAction" onclick="openTicketDrawer()" aria-label="Open Support tickets">☰</button></div>
+<div class="chat" id="chat"></div>
+<div class="ibar"><input type="text" class="ipt" id="ipt" placeholder="Ask Sendy anything..." onkeydown="if(event.key==='Enter')send()"/><button class="sbtn" onclick="send()">↑</button></div>
+</div>
+<style>
+.chips{display:flex;flex-wrap:wrap;gap:7px;padding-left:36px;animation:up .3s}
+.chip{padding:9px 14px;border-radius:20px;font:inherit;font-size:13px;font-weight:500;line-height:1.2;color:var(--text);background:var(--surface);border:1.5px solid var(--border);cursor:pointer;transition:all .2s;white-space:nowrap;appearance:none}
+.chip:hover{border-color:var(--pri);background:var(--pri-l)}.chip:active{transform:scale(.95)}
+.hp{flex:1;display:flex;align-items:center;gap:8px;padding:12px 14px;border-radius:12px;background:var(--surface);border:1.5px solid var(--border);cursor:pointer;font-size:12px;font-weight:500;transition:all .15s}
+.hp:hover{border-color:var(--pri);background:var(--pri-l)}.hp:active{transform:scale(.97)}
+.hp span:first-child{font-size:16px}
+.card{padding-left:36px;animation:up .3s;max-width:92%}
+.cbox{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden}
+.ibar{display:flex;gap:10px;padding:10px 16px;background:var(--surface);border-top:1px solid var(--border);flex-shrink:0}
+.ipt{flex:1;padding:11px 16px;border-radius:24px;border:1.5px solid var(--border);font-size:14px;outline:none;background:var(--bg)}.ipt:focus{border-color:var(--pri)}
+.sbtn{width:42px;height:42px;border-radius:50%;background:var(--pri);color:#fff;border:none;font-size:16px;font-weight:700;cursor:pointer}.sbtn:active{transform:scale(.9)}
+.btn{padding:11px 16px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;text-align:center;border:none;transition:all .15s}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--pri);color:#fff}
+.btn-s{background:var(--surface);border:1.5px solid var(--border);color:var(--text)}
+.btn-o{background:transparent;border:1.5px solid var(--border);color:var(--text2)}
+.fb-row{display:flex;gap:6px;padding-left:36px;margin-top:-4px;animation:up .2s}
+.fb-b{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:.5;transition:all .15s}
+.fb-b:hover{opacity:1;border-color:var(--pri)}.fb-b:active{transform:scale(.85)}
+.tl{position:relative;padding-left:18px;margin:8px 0}
+.tl::before{content:'';position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--border)}
+.tl-s{position:relative;padding:6px 0 6px 14px;opacity:.35;transition:opacity .5s}
+.tl-s.on{opacity:1}
+.tl-s::before{content:'';position:absolute;left:-13px;top:10px;width:8px;height:8px;border-radius:50%;background:var(--border);transition:all .5s}
+.tl-s.on::before{background:var(--ok)}
+.tl-s.now::before{background:var(--pri);box-shadow:0 0 0 3px var(--pri-l)}
+.tl-s strong{font-size:12px}.tl-s span{font-size:11px;color:var(--text2)}
+.menu-btn{border-radius:10px;font-size:17px;line-height:1}
+.support-mode .topbar-btn{width:auto;padding:0 8px;border-radius:10px;font-size:10px;font-weight:700}
+.support-top-actions{display:flex;align-items:center;gap:5px}
+.support-chat{padding:14px 16px 20px;gap:10px}
+.support-case-head{margin:0 -16px 2px;padding:10px 16px 11px;background:var(--surface);border-bottom:1px solid var(--border)}
+.support-meta{display:flex;align-items:center;gap:12px;margin:0;color:var(--text2);font-size:10px}.support-meta span{white-space:nowrap}.support-meta strong{color:var(--text)}
+.support-day{margin:3px 0 4px;color:#9AA3AD;font-size:10px;font-weight:700;text-align:center}
+.support-event{padding:11px 12px;border:1px solid var(--border);border-radius:12px;background:#F1F5F9;color:var(--text2);font-size:11px;line-height:1.45}.support-event strong{display:block;margin-bottom:3px;color:var(--text);font-size:11px}
+.support-divider{display:flex;align-items:center;gap:8px;margin:4px 0 0;color:#9AA3AD;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;text-align:center}.support-divider::before,.support-divider::after{content:'';height:1px;flex:1;background:var(--border)}
+.support-awaiting{margin:-3px 0 2px;color:var(--text2);font-size:10px;text-align:center}
+.support-message{display:flex;gap:8px;align-items:flex-start}.support-message.user{justify-content:flex-end}.support-avatar{width:28px;height:28px;border-radius:50%;background:#E7EDF3;color:var(--sec);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0}.support-avatar.user{background:var(--sec);color:#fff}
+.support-wrap{max-width:82%}.support-name{display:block;margin:0 0 3px;color:var(--text2);font-size:10px;font-weight:700}.support-bubble{padding:10px 12px;border:1px solid var(--border);border-radius:15px 15px 15px 5px;background:var(--surface);font-size:12px;line-height:1.45}.support-message.user .support-bubble{border:0;border-radius:15px 15px 5px 15px;background:var(--sec);color:#fff}.support-time{display:block;margin-top:3px;color:#9AA3AD;font-size:9px}
+.support-text-link{padding:0;border:0;background:transparent;color:#2D6DB5;font:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+.case-ibar{display:block;padding:9px 16px 11px}.case-ibar .case-input-row{display:flex;gap:10px}.case-ibar .case-input-row .ipt{min-width:0}.case-ibar .ipt:disabled{border-color:#D7DDE3;background:#EEF1F4;color:#9AA3AD;opacity:1}.case-ibar .sbtn:disabled{background:#C8D0D8;color:#F7F8FA;cursor:not-allowed;opacity:1}
+.support-intake{padding:12px}.support-intake h4{margin:0 0 9px;font-size:13px}.support-intake textarea{width:100%;min-height:76px;padding:10px;border:1.5px solid var(--border);border-radius:10px;background:var(--bg);font:inherit;font-size:12px;resize:none}.support-intake .attachment{display:flex;align-items:center;gap:8px;margin-top:8px;padding:9px 10px;border:1px dashed #C7D0D8;border-radius:10px;background:#FBFCFD;color:var(--text2);font-size:11px}.support-intake .attachment .file{margin-left:auto;color:var(--ok);font-size:10px}.support-intake .intake-actions{display:flex;gap:8px;margin-top:10px}.support-intake .intake-actions .btn{flex:1}
+.support-intake fieldset{border:0;margin:0}.support-intake legend{margin:0 0 7px;font-size:10px;color:var(--text2);font-weight:800;text-transform:uppercase;letter-spacing:.06em}.support-issue-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.support-issue-option{display:flex;align-items:center;gap:7px;padding:9px 10px;border:1.5px solid var(--border);border-radius:10px;background:var(--surface);font-size:11px;cursor:pointer}.support-issue-option:has(input:checked){border-color:var(--pri);background:var(--pri-l);color:#7A3B1C}.support-issue-option input{accent-color:var(--pri);margin:0}.support-intake .intake-error{margin-top:7px;color:var(--err);font-size:10px}.support-intake .attachment button{margin-left:auto;border:0;background:transparent;color:var(--text2);font:inherit;font-size:10px;cursor:pointer;text-decoration:underline}.support-selected-items{margin:0 0 10px;padding:8px 9px;border-radius:9px;background:#F1F5F9;color:var(--text2);font-size:10px;line-height:1.35}.support-selected-items strong{color:var(--text)}
+.support-modal-overlay{position:absolute;inset:0;z-index:60;display:flex;align-items:flex-end;justify-content:center;padding:12px;background:rgba(27,40,56,.48)}.support-dialog{width:100%;max-height:84%;display:flex;flex-direction:column;background:var(--surface);border-radius:20px;box-shadow:0 20px 54px rgba(17,27,38,.28);overflow:hidden}.support-dialog-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:16px;border-bottom:1px solid var(--border)}.support-dialog-head h2{margin:0;font-size:15px}.support-dialog-head p{margin:4px 0 0;color:var(--text2);font-size:10px;line-height:1.4}.support-dialog-close{width:30px;height:30px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text2);font-size:18px;cursor:pointer;line-height:1}.support-item-list{min-height:0;overflow-y:auto;padding:10px 12px}.support-select-all{display:flex;align-items:center;gap:8px;margin:0 0 9px;padding:8px 10px;border-radius:10px;background:#F1F5F9;color:var(--text2);font-size:10px;font-weight:700}.support-select-all input{width:16px;height:16px;accent-color:var(--pri)}.support-item-option{display:flex;align-items:flex-start;gap:10px;padding:11px 10px;border:1.5px solid var(--border);border-radius:12px;background:var(--surface);cursor:pointer}.support-item-option+.support-item-option{margin-top:8px}.support-item-option:has(input:checked){border-color:#A7F3D0;background:#ECFDF5}.support-item-option input{width:18px;height:18px;flex:0 0 auto;margin-top:1px;accent-color:var(--pri)}.support-item-copy{min-width:0;flex:1}.support-item-copy strong{display:block;font-size:12px}.support-item-copy span{display:block;margin-top:3px;color:var(--text2);font-size:10px;line-height:1.35}.support-item-price{margin-left:auto;color:var(--text);font-size:11px;font-weight:700;white-space:nowrap}.support-dialog-error{padding:0 12px;color:var(--err);font-size:10px}.support-dialog-foot{display:flex;gap:8px;padding:12px;border-top:1px solid var(--border)}.support-dialog-foot .btn{flex:1}
+.support-review{padding:12px}.support-review h4{margin:0 0 5px;font-size:13px}.support-review p{margin:0;color:var(--text2);font-size:11px;line-height:1.4}.support-review .context-mini{margin-top:10px;padding:9px;border:1px solid var(--border);border-radius:10px;background:var(--bg);font-size:10px;line-height:1.4}.support-review .review-boundary{margin-top:10px;padding:9px;border-radius:10px;background:#FEF3C7;color:#765519;font-size:10px;line-height:1.4}
+.drawer-overlay{position:absolute;inset:0;z-index:40;background:rgba(27,40,56,.48)}.drawer-scrim{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;cursor:pointer}.ticket-drawer{position:absolute;inset:0 0 0 auto;width:82%;max-width:320px;display:flex;flex-direction:column;background:var(--surface);box-shadow:-18px 0 42px rgba(17,27,38,.24)}.drawer-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:14px;border-bottom:1px solid var(--border)}.drawer-head-left{display:flex;align-items:center;gap:9px}.drawer-head h3{margin:0;font-size:15px}.drawer-head small{display:block;margin-top:3px;color:var(--text2);font-size:10px}.drawer-close{width:32px;height:32px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text2);font-size:18px;cursor:pointer}.drawer-return{padding:7px 8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text2);font-size:10px;font-weight:700;cursor:pointer}.drawer-content{flex:1;min-height:0;overflow-y:auto;padding:14px}.drawer-intro{margin:0 0 16px;padding:10px 11px;border-left:3px solid var(--pri);border-radius:0 10px 10px 0;background:var(--pri-l);color:#71401F;font-size:10px;line-height:1.45}.drawer-section+.drawer-section{margin-top:18px}.drawer-section-title{display:flex;justify-content:space-between;margin:0 0 8px;color:var(--text2);font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.drawer-section-title span:last-child{color:#9AA3AD;font-weight:600;letter-spacing:0;text-transform:none}.drawer-ticket{display:block;width:100%;padding:11px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);text-align:left;cursor:pointer}.drawer-ticket+.drawer-ticket{margin-top:8px}.drawer-ticket.open{border-color:#B9D8F0}.drawer-ticket-top{display:flex;align-items:flex-start;gap:8px}.drawer-ticket-icon{width:31px;height:31px;border-radius:10px;background:#EFF6FF;color:#2D6DB5;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}.drawer-ticket.resolved .drawer-ticket-icon{background:#D1FAE5;color:#065F46}.drawer-ticket-copy{min-width:0;flex:1}.drawer-ticket-copy strong{display:block;font-size:11px;line-height:1.2}.drawer-ticket-copy span{display:block;margin-top:3px;color:var(--text2);font-size:9px;line-height:1.35}.drawer-ticket-id{color:#9AA3AD;font-size:13px}.drawer-ticket-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:8px;color:var(--text2);font-size:9px}.drawer-ticket-status{padding:5px 7px;border-radius:7px;background:#EFF6FF;color:#2D6DB5;font-size:9px;font-weight:800;white-space:nowrap}.drawer-ticket-status.resolved{background:#D1FAE5;color:#065F46}.drawer-note{margin:13px 0 0;color:#9AA3AD;font-size:9px;line-height:1.35;text-align:center}
+</style>
+<script>
+// === MOCK DATA (SendFood source of truth) ===
+const USER={name:'Tina',address:'Blk 123 Jalan Ampang, #05-12',postal:'519123',hasHistory:true};
+const ACTIVE_ORDER={id:'SF4801',stall:'Pizza Planet',emoji:'🍕',status:'DB on the way to stall',time:'Today 1:10 PM',total:19,items:[{name:'Margherita (10")',opts:'Classic crust',qty:1,price:13},{name:'Garlic Bread',opts:'',qty:1,price:6}]};
+// Set to null to test no-active-order: const ACTIVE_ORDER=null;
+const STALLS=[
+{id:'s1',name:'Burger Barn',emoji:'🍔',bg:'#FEF3C7',rating:4.8,time:'15-20 min',dist:'1.2 km',tags:['Western'],hours:'8am-10pm',status:'open'},
+{id:'s2',name:'Thai Orchid',emoji:'🍜',bg:'#DBEAFE',rating:4.7,time:'20-25 min',dist:'2.1 km',tags:['Thai'],hours:'10am-9pm',status:'open'},
+{id:'s3',name:'Green Bowl',emoji:'🥗',bg:'#D1FAE5',rating:4.9,time:'10-15 min',dist:'0.8 km',tags:['Healthy'],hours:'7am-8pm',status:'open'},
+{id:'s4',name:'Pizza Planet',emoji:'🍕',bg:'#FEE2E2',rating:4.6,time:'25-30 min',dist:'3.0 km',tags:['Italian'],hours:'11am-11pm',status:'open'},
+{id:'s5',name:'Nasi Kandar Ali',emoji:'🍛',bg:'#E0E7FF',rating:4.5,time:'15-20 min',dist:'1.5 km',tags:['Malay'],hours:'6am-3pm',status:'closed'}
+];
+const MENUS={
+s1:[{id:'m1',name:'Smash Burger',price:12,desc:'Double patty, cheese, sauce',pop:95,avail:true,opts:{size:['Regular','Large +$3'],extras:['Bacon +$2','Cheese +$1']}},{id:'m2',name:'Chicken Burger',price:11,desc:'Crispy chicken, slaw',pop:72,avail:true,opts:{size:['Regular','Large +$3']}},{id:'m3',name:'Loaded Fries',price:8,desc:'Cheese sauce, bacon',pop:88,avail:true,opts:{size:['Regular','Large +$2']}},{id:'m4',name:'Milkshake',price:6,desc:'Thick and creamy',pop:60,avail:true,opts:{flavor:['Chocolate','Vanilla','Strawberry']}},{id:'m5',name:'BBQ Wings (6pc)',price:10,desc:'BBQ sauce, ranch',pop:80,avail:true,opts:{}},{id:'m6',name:'Onion Rings',price:6,desc:'Beer-battered',pop:55,avail:true,opts:{}},{id:'m7',name:'Iced Coffee',price:5,desc:'Cold brew, milk',pop:50,avail:true,opts:{}}],
+s2:[{id:'m8',name:'Pad Thai',price:14,desc:'Noodles, shrimp, peanuts',pop:91,avail:true,opts:{spice:['Mild','Medium','Spicy'],protein:['Chicken','Shrimp +$2','Tofu']}},{id:'m9',name:'Green Curry',price:15,desc:'Coconut, basil',pop:78,avail:true,opts:{spice:['Mild','Medium','Spicy']}},{id:'m10',name:'Tom Yum',price:12,desc:'Hot sour soup',pop:85,avail:true,opts:{}},{id:'m11',name:'Spring Rolls',price:7,desc:'Crispy, sweet chili',pop:65,avail:true,opts:{}},{id:'m12',name:'Basil Chicken Rice',price:13,desc:'Holy basil, egg',pop:83,avail:true,opts:{}},{id:'m13',name:'Thai Iced Tea',price:5,desc:'Sweet, creamy',pop:55,avail:true,opts:{}}],
+s3:[{id:'m14',name:'Poke Bowl',price:16,desc:'Salmon, avocado',pop:93,avail:true,opts:{base:['White Rice','Brown Rice','Quinoa'],protein:['Salmon','Tuna +$2','Tofu']}},{id:'m15',name:'Acai Bowl',price:13,desc:'Granola, berries',pop:82,avail:true,opts:{}},{id:'m16',name:'Caesar Salad',price:10,desc:'Romaine, parmesan',pop:70,avail:true,opts:{protein:['None','Chicken +$3']}},{id:'m17',name:'Avocado Toast',price:11,desc:'Sourdough, egg',pop:85,avail:true,opts:{}}],
+s4:[{id:'m18',name:'Margherita',price:13,desc:'Mozzarella, basil',pop:89,avail:true,opts:{size:['10"','14" +$4'],crust:['Classic','Thin','Stuffed +$2']}},{id:'m19',name:'Pepperoni',price:15,desc:'Spicy pepperoni',pop:85,avail:true,opts:{size:['10"','14" +$4']}},{id:'m20',name:'Carbonara',price:14,desc:'Pancetta, egg',pop:83,avail:true,opts:{}},{id:'m21',name:'Garlic Bread',price:6,desc:'Butter, herbs',pop:62,avail:true,opts:{}},{id:'m22',name:'Tiramisu',price:8,desc:'Espresso, mascarpone',pop:74,avail:true,opts:{}}]
+};
+const USUAL_ORDER={stall:'s2',items:[{id:'m8',name:'Pad Thai',opts:'Medium, Shrimp',qty:1,price:16},{id:'m11',name:'Spring Rolls',opts:'',qty:1,price:7}]};
+const PAST_ORDERS=[
+{id:'SF4821',stall:'Thai Orchid',emoji:'🍜',status:'Delivered',date:'Today, 12:35 PM',total:23,items:[{name:'Pad Thai',opts:'Medium, Shrimp',qty:1,price:16},{name:'Spring Rolls',opts:'',qty:1,price:7}]},
+{id:'SF4790',stall:'Burger Barn',emoji:'🍔',status:'Delivered',date:'Yesterday, 7:12 PM',total:26,items:[{name:'Smash Burger',opts:'Large, Bacon',qty:1,price:17},{name:'Loaded Fries',opts:'Large',qty:1,price:10}]}
+];
+let cart=[],curStall=null,addrOk=false,cfgItem=null,cfgQty=1,cfgSel={};
+let appMode='sendy',sendySnapshot='',activeCaseId=null,caseSequence=10482;
+let supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null};
+let itemModalLastFocus=null,drawerLastFocus=null;
+const SUPPORT_CASES={
+  'CX-10391':{id:'CX-10391',status:'Resolved',resolved:true,title:'Delivery fee query',order:{id:'SF4712',stall:'Thai Orchid',emoji:'🍜',date:'16 Aug',total:4},issue:'Delivery fee query',item:'',options:'',description:'Asked why the delivery fee changed for a previous order.',attachment:'',created:'16 Aug',lastUpdate:'16 Aug',agent:'Mira',agentJoined:true,messages:[{sender:'agent',name:'Mira',text:'The delivery fee for this order has been reviewed and the case is now resolved.',time:'1:28 pm'},{sender:'user',name:'You',text:'That resolves it, thank you.',time:'1:29 pm'}]},
+};
+const ch=document.getElementById('chat');
+const phone=document.getElementById('phone');
+const topbar=document.getElementById('topbar');
+const composer=document.querySelector('.ibar');
+// === HELPERS ===
+function scr(){setTimeout(()=>ch.scrollTop=ch.scrollHeight,60)}
+function bot(t){const d=document.createElement('div');d.className='msg';d.innerHTML=`<div class="msg-a">S</div><div class="bub">${t}</div>`;ch.appendChild(d);scr()}
+function usr(t){const d=document.createElement('div');d.className='msg u';d.innerHTML=`<div class="bub">${t}</div>`;ch.appendChild(d);scr()}
+function addEl(h){const w=document.createElement('div');w.innerHTML=h;while(w.firstChild)ch.appendChild(w.firstChild);scr()}
+function showT(){const d=document.createElement('div');d.className='msg';d.id='tp';d.innerHTML=`<div class="msg-a">S</div><div class="bub"><span class="typ"><span></span><span></span><span></span></span></div>`;ch.appendChild(d);scr()}
+function hideT(){const e=document.getElementById('tp');if(e)e.remove()}
+function say(t,d=500){return new Promise(r=>{showT();setTimeout(()=>{hideT();bot(t);r()},d)})}
+function chips(o,cb){const d=document.createElement('div');d.className='chips';o.forEach(x=>{const s=document.createElement('button');s.type='button';s.className='chip';s.textContent=x;s.onclick=()=>{d.remove();usr(x);cb(x)};d.appendChild(s)});ch.appendChild(d);scr()}
+function updCart(){/* mini cart placeholder */}
+function addFb(){addEl(`<div class="fb-row"><button class="fb-b" onclick="this.parentElement.innerHTML='<span style=font-size:11px;color:var(--ok)>Thanks!</span>'">👍</button><button class="fb-b" onclick="fbDown()">👎</button></div>`)}
+function fbDown(){say("What was wrong?",300).then(()=>chips(['Incorrect','Irrelevant','Unclear','Did not answer','Other'],c=>{say("Thanks for the feedback. I'll improve.",300)}))}
+function dialogFocusables(root){return [...root.querySelectorAll('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null)}
+function trapDialogFocus(event,dialog){
+  if(event.key!=='Tab')return;
+  const focusables=dialogFocusables(dialog);if(!focusables.length)return;
+  const first=focusables[0],last=focusables[focusables.length-1];
+  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+}
+document.addEventListener('keydown',event=>{
+  const modal=document.getElementById('supportItemModal');
+  const drawer=document.getElementById('ticketDrawer');
+  const dialog=modal?.querySelector('[role="dialog"]')||drawer?.querySelector('[role="dialog"]');
+  if(!dialog)return;
+  if(event.key==='Escape'){event.preventDefault();if(modal)closeSupportItemModal();else closeTicketDrawer();return}
+  trapDialogFocus(event,dialog);
+});
+
+// === APP CHROME ===
+function setSendyChrome(){
+  appMode='sendy';
+  phone.classList.remove('support-mode');
+  topbar.innerHTML=`<div class="topbar-l"><div class="av">S</div><div><h1>Sendy</h1><span class="st">● Online</span></div></div><button class="topbar-btn menu-btn" id="topbarAction" onclick="openTicketDrawer()" aria-label="Open Support tickets">☰</button>`;
+  composer.className='ibar';
+  composer.innerHTML=`<input type="text" class="ipt" id="ipt" placeholder="Ask Sendy anything..." onkeydown="if(event.key==='Enter')send()"/><button class="sbtn" onclick="send()" aria-label="Send message">↑</button>`;
+}
+function setSupportChrome(resolved,record){
+  appMode='support';
+  phone.classList.add('support-mode');
+  const agentJoined=!!record?.agentJoined&&!!record?.agent;
+  const title=agentJoined?`${record.agent} · Customer Support`:'Customer Support';
+  const subtitle=resolved?'Resolved':agentJoined?'Support agent':'Waiting for agent';
+  topbar.innerHTML=`<div class="topbar-l"><div class="av" style="background:#E7EDF3;color:var(--sec)">☏</div><div><h1>${title}</h1><span class="st" style="color:var(--text2)">${subtitle}</span></div></div><div class="support-top-actions"><button class="topbar-btn" id="supportTicketsAction" onclick="returnToTicketDrawer()" aria-label="Open Support tickets">Tickets</button><button class="topbar-btn" id="topbarAction" onclick="returnToSendy()" aria-label="Return to Sendy">‹ Sendy</button></div>`;
+  composer.className='ibar case-ibar';
+  composer.innerHTML=resolved?`<div class="case-input-row"><input type="text" class="ipt" id="caseIpt" placeholder="This conversation is read-only" disabled/><button class="sbtn" disabled aria-label="Reply unavailable">↑</button></div>`:`<div class="case-input-row"><input type="text" class="ipt" id="caseIpt" placeholder="Message Customer Support..." onkeydown="if(event.key==='Enter')supportSend()"/><button class="sbtn" onclick="supportSend()" aria-label="Send reply">↑</button></div>`;
+}
+function goHome(){
+  sendySnapshot='';
+  activeCaseId=null;
+  setSendyChrome();
+  ch.className='chat';
+  ch.innerHTML='';
+  showHome();
+}
+function returnToSendy(){
+  activeCaseId=null;
+  supportDraft.caseId=null;
+  setSendyChrome();
+  ch.className='chat';
+  ch.innerHTML=sendySnapshot||'';
+  scr();
+  if(!ch.innerHTML)showHome();
+}
+
+// === DEFAULT SENDY SCREEN ===
+function showHome(){
+  setSendyChrome();
+  ch.className='chat';
+  // Active order banner
+  if(ACTIVE_ORDER){
+    addEl(`<div class="card"><div class="cbox" style="border-color:#A7F3D0;background:#ECFDF5">
+      <div style="padding:12px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">${ACTIVE_ORDER.emoji}</span>
+        <div style="flex:1"><div style="font-size:12px;font-weight:600;color:#065F46">${ACTIVE_ORDER.status}</div><div style="font-size:11px;color:#047857">#${ACTIVE_ORDER.id} • ${ACTIVE_ORDER.stall}</div></div>
+        <button class="btn btn-p" style="padding:6px 12px;font-size:11px" onclick="doTrack(true)">Track</button>
+        <button class="btn btn-s" style="padding:6px 12px;font-size:11px" onclick="intentHelp()">Get order help</button>
+      </div>
+    </div></div>`)
+  }
+  say(`Hi ${USER.name}, what can I help you with today?`,300).then(()=>{
+    addEl(`<div style="padding-left:36px;animation:up .3s;max-width:92%;display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;gap:6px"><div class="hp" onclick="intentFood()"><span>🍽️</span><span>Help me choose food</span></div><div class="hp" onclick="intentOrders()"><span>📦</span><span>My orders</span></div></div>
+      <div style="display:flex;gap:6px"><div class="hp" onclick="intentHelp()"><span>🆘</span><span>Get order help</span></div><div class="hp" onclick="intentAsk()"><span>❓</span><span>Ask about SendFood</span></div></div>
+    </div>`)
+  })
+}
+// === HELP ME CHOOSE FOOD ===
+function intentFood(){
+  usr("🍽️ Help me choose food");
+  if(!addrOk){confirmAddr(showIntents);return}
+  showIntents()
+}
+function confirmAddr(cb){
+  say(`📍 Delivering to: <strong>${USER.address}</strong> (${USER.postal})`,300).then(()=>{
+    chips(['✓ Correct','📍 Change location'],c=>{
+      if(c.includes('Correct')){addrOk=true;cb()}
+      else{say("Enter your 6-digit postal code:",300).then(()=>{addEl(`<div style="padding-left:36px;max-width:92%"><input type="text" class="ipt" id="pc" style="width:100%;border-radius:10px;margin-bottom:6px" placeholder="e.g. 520123" maxlength="6"/><button class="btn btn-p" style="width:100%" onclick="resolvePostal()">Look up</button></div>`)})}
+    })
+  })
+}
+function resolvePostal(){
+  const pc=document.getElementById('pc').value.trim();
+  if(!/^\d{6}$/.test(pc)){say("Please enter a valid 6-digit postal code.",300);return}
+  usr(pc);
+  say("Looking up address...",500).then(()=>{
+    USER.postal=pc;USER.address=`Blk ${pc.slice(3)} Street ${pc.slice(0,2)}, Singapore ${pc}`;
+    say(`Found: <strong>${USER.address}</strong><br>Enter floor/unit:`,300).then(()=>{
+      addEl(`<div style="padding-left:36px;max-width:92%"><input type="text" class="ipt" id="unit" style="width:100%;border-radius:10px;margin-bottom:6px" placeholder="#05-12"/><button class="btn btn-p" style="width:100%" onclick="confirmUnit()">Confirm address</button></div>`)
+    })
+  })
+}
+function confirmUnit(){
+  const u=document.getElementById('unit').value.trim();
+  if(u)USER.address+=', '+u;
+  usr(`📍 ${USER.address}`);addrOk=true;
+  say(`Delivering to <strong>${USER.address}</strong>`,300).then(()=>showIntents())
+}
+function showIntents(){
+  const opts=USER.hasHistory?['⚡ My Usual Order','🚀 Fastest Nearby','🔥 Popular Nearby','🎲 Surprise Me']:['🚀 Fastest Nearby','🔥 Popular Nearby','🎲 Surprise Me'];
+  chips(opts,handleIntent)
+}
+function handleIntent(c){
+  if(c.includes('Usual'))doUsualOrder();
+  else{
+    const label=c.includes('Fastest')?'fastest delivery':c.includes('Popular')?'popular':'a surprise';
+    say(`Finding the ${label} stalls available to you...`,600).then(()=>showStallRecs(c))
+  }
+}
+// === MY USUAL ORDER ===
+function doUsualOrder(){
+  const stall=STALLS.find(s=>s.id===USUAL_ORDER.stall);
+  if(!stall||stall.status==='closed'){say(`${stall?stall.name:'Your usual stall'} is currently unavailable.`,400).then(()=>chips(['🚀 Fastest Nearby','🔥 Popular Nearby','🎲 Surprise Me'],handleIntent));return}
+  say("Checking your usual order availability...",500).then(()=>{
+    const items=USUAL_ORDER.items;const sub=items.reduce((s,i)=>s+i.price*i.qty,0);
+    say(`Your usual from ${stall.name}:`,300).then(()=>{
+      let h=`<div class="card"><div class="cbox"><div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="font-size:18px">${stall.emoji}</span><div><strong style="font-size:13px">${stall.name}</strong><div style="font-size:11px;color:var(--text2)">⭐${stall.rating} • ${stall.time} • All items available</div></div></div><div style="padding:10px 14px">`;
+      items.forEach(i=>{h+=`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)"><div><div style="font-size:13px;font-weight:600">${i.qty}× ${i.name}</div><div style="font-size:11px;color:var(--text2)">${i.opts||'Standard'}</div></div><span style="font-size:13px;font-weight:700">$${i.price*i.qty}</span></div>`});
+      h+=`</div><div style="padding:10px 14px;background:var(--bg);border-top:1px solid var(--border);font-size:12px"><div style="display:flex;justify-content:space-between;font-weight:700;font-size:14px"><span>Subtotal</span><span>$${sub}</span></div><div style="font-size:11px;color:var(--text2);margin-top:4px">⏱ Est. ${stall.time}</div></div>`;
+      h+=`<div style="display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border)"><button class="btn btn-p" style="flex:1" onclick="repeatUsual()">Repeat Order</button><button class="btn btn-s" style="flex:1" onclick="editUsual()">Edit Order</button><button class="btn btn-o" style="flex:1" onclick="showIntents()">Cancel</button></div></div></div>`;
+      addEl(h)
+    })
+  })
+}
+function repeatUsual(){usr("Repeat Order");cart=USUAL_ORDER.items.map(i=>({...i}));curStall=USUAL_ORDER.stall;say("✓ Added to cart. Ready for checkout:",300).then(()=>doCheckout())}
+function editUsual(){usr("Edit Order");curStall=USUAL_ORDER.stall;cart=USUAL_ORDER.items.map(i=>({...i}));say("Here's your order — edit below:",300).then(()=>showCart())}
+
+// === STALL RECOMMENDATIONS ===
+function showStallRecs(intent){
+  const avail=STALLS.filter(s=>s.status==='open');
+  let sorted;
+  if(intent.includes('Fastest'))sorted=[...avail].sort((a,b)=>parseInt(a.time)-parseInt(b.time));
+  else if(intent.includes('Popular'))sorted=[...avail].sort((a,b)=>b.rating-a.rating);
+  else sorted=[...avail].sort(()=>Math.random()-.5);
+  const recs=sorted.slice(0,3);
+  say(`Here are ${recs.length} stalls I'd recommend:`,300).then(()=>{
+    recs.forEach(s=>{
+      const top=MENUS[s.id]?[...MENUS[s.id]].sort((a,b)=>b.pop-a.pop).slice(0,2):[];
+      addEl(`<div class="card" style="margin-bottom:6px"><div class="cbox">
+        <div style="padding:12px 14px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="selectStall('${s.id}')">
+          <div style="width:40px;height:40px;border-radius:10px;background:${s.bg};display:flex;align-items:center;justify-content:center;font-size:20px">${s.emoji}</div>
+          <div style="flex:1"><strong style="font-size:13px">${s.name}</strong><div style="font-size:11px;color:var(--text2)">⭐${s.rating} • ${s.time} • ${s.dist} • ${s.tags[0]}</div>${top.length?`<div style="font-size:11px;color:var(--text2);margin-top:2px">${top.map(i=>i.name).join(', ')}</div>`:''}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 14px;border-top:1px solid var(--border)">
+          <button style="padding:5px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;font-size:11px;color:var(--text2);cursor:pointer" onclick="notForMe('${s.id}')">Not for me</button>
+          <button class="btn btn-p" style="padding:5px 14px;font-size:11px" onclick="selectStall('${s.id}')">Select stall →</button>
+        </div>
+      </div></div>`)
+    });
+    addFb()
+  })
+}
+function notForMe(id){usr("Not for me");chips(['Too far','Too slow','Too expensive','Not my taste','Different cuisine',"Don't show again"],c=>{say("Got it — I'll adjust your recommendations.",300)})}
+// === MENU BROWSING ===
+function selectStall(id){
+  curStall=id;const s=STALLS.find(x=>x.id===id);usr(`${s.emoji} ${s.name}`);
+  const items=[...MENUS[id]].filter(i=>i.avail).sort((a,b)=>b.pop-a.pop);
+  const show=items.slice(0,5);const more=items.length>5;
+  say(`${s.name}'s menu (${items.length} items):`,300).then(()=>{
+    let h=`<div class="card"><div class="cbox">`;
+    show.forEach(i=>{h+=`<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s" onclick="selectItem('${i.id}')" onmouseenter="this.style.background='var(--bg)'" onmouseleave="this.style.background=''"><div style="flex:1"><div style="font-size:13px;font-weight:600">${i.name}</div><div style="font-size:11px;color:var(--text2)">${i.desc}</div></div><span style="font-size:13px;font-weight:700">$${i.price}</span></div>`});
+    h+=`</div></div>`;addEl(h);
+    if(more)setTimeout(()=>chips(['Show more','See all','🔍 Search'],c=>{if(c==='Show more')showMore(id,5);else if(c==='See all')showAll(id);else doSearch(id)}),200)
+  })
+}
+function showMore(id,offset){
+  const items=[...MENUS[id]].filter(i=>i.avail).sort((a,b)=>b.pop-a.pop).slice(offset,offset+5);
+  if(!items.length){say("That's everything!");return}
+  let h=`<div class="card"><div class="cbox">`;
+  items.forEach(i=>{h+=`<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="selectItem('${i.id}')"><div style="flex:1"><div style="font-size:13px;font-weight:600">${i.name}</div><div style="font-size:11px;color:var(--text2)">${i.desc}</div></div><span style="font-size:13px;font-weight:700">$${i.price}</span></div>`});
+  h+=`</div></div>`;addEl(h);
+  if(MENUS[id].filter(i=>i.avail).length>offset+5)setTimeout(()=>chips(['Show more','See all'],c=>{if(c==='Show more')showMore(id,offset+5);else showAll(id)}),200)
+}
+function showAll(id){const items=[...MENUS[id]].filter(i=>i.avail).sort((a,b)=>b.pop-a.pop);let h=`<div class="card"><div class="cbox">`;items.forEach(i=>{h+=`<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="selectItem('${i.id}')"><div style="flex:1"><div style="font-size:13px;font-weight:600">${i.name}</div><div style="font-size:11px;color:var(--text2)">${i.desc}</div></div><span style="font-size:13px;font-weight:700">$${i.price}</span></div>`});h+=`</div></div>`;addEl(h)}
+function doSearch(id){say("Search this menu:",300).then(()=>{addEl(`<div style="padding-left:36px;max-width:92%"><input type="text" class="ipt" id="ms" style="width:100%;border-radius:10px" placeholder="e.g. chicken, spicy..." onkeydown="if(event.key==='Enter')runSearch('${id}')"/></div>`)})}
+function runSearch(id){const q=document.getElementById('ms').value.trim().toLowerCase();if(!q)return;usr(q);const r=MENUS[id].filter(i=>i.avail&&(i.name+' '+i.desc).toLowerCase().includes(q));if(r.length){let h=`<div class="card"><div class="cbox">`;r.forEach(i=>{h+=`<div style="display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border);cursor:pointer" onclick="selectItem('${i.id}')"><div style="flex:1"><div style="font-size:13px;font-weight:600">${i.name}</div><div style="font-size:11px;color:var(--text2)">${i.desc}</div></div><span style="font-size:13px;font-weight:700">$${i.price}</span></div>`});h+=`</div></div>`;addEl(h)}else say("No matches. Try a different word.",300)}
+
+// === ITEM CONFIG ===
+function selectItem(id){
+  const item=MENUS[curStall].find(i=>i.id===id);if(!item||!item.avail){say("Item unavailable.",300);return}
+  cfgItem=item;cfgQty=1;cfgSel={};
+  let oh='';
+  if(item.opts&&Object.keys(item.opts).length){Object.entries(item.opts).forEach(([k,vs])=>{oh+=`<div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;margin:10px 0 6px">${k} <span style="color:var(--pri)">required</span></div><div style="display:flex;flex-wrap:wrap;gap:6px">`;vs.forEach((v,i)=>{oh+=`<button type="button" class="chip${i===0?' sel':''}" style="padding:8px 12px;font-size:12px;border-radius:8px" onclick="cfgSel(this,'${k}','${v}')">${v}</button>`;if(i===0)cfgSel[k]=v});oh+=`</div>`})}
+  oh+=`<div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;margin:10px 0 6px">Quantity</div><div style="display:flex;align-items:center;gap:14px"><button style="width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);font-size:15px;cursor:pointer" onclick="cfgQ(-1)">−</button><span style="font-size:15px;font-weight:700" id="cq">1</span><button style="width:30px;height:30px;border-radius:50%;border:1.5px solid var(--border);background:var(--surface);font-size:15px;cursor:pointer" onclick="cfgQ(1)">+</button></div>`;
+  oh+=`<button class="btn btn-p" style="width:100%;margin-top:14px" id="abtn" onclick="addToCart()">Add to Cart — $${item.price}</button>`;
+  say(`<strong>${item.name}</strong> — $${item.price}<br><span style="font-size:12px;color:var(--text2)">${item.desc}</span>`,300).then(()=>{addEl(`<div class="card"><div class="cbox" style="padding:14px">${oh}</div></div>`)})
+}
+window.cfgSel=function(el,k,v){el.parentElement.querySelectorAll('.chip').forEach(o=>o.classList.remove('sel'));el.classList.add('sel');cfgSel[k]=v;updCfgPrice()}
+function cfgQ(d){cfgQty=Math.max(1,cfgQty+d);document.getElementById('cq').textContent=cfgQty;updCfgPrice()}
+function updCfgPrice(){let x=0;Object.values(cfgSel).forEach(v=>{const m=v.match(/\+\$(\d+)/);if(m)x+=parseInt(m[1])});document.getElementById('abtn').textContent=`Add to Cart — $${(cfgItem.price+x)*cfgQty}`}
+function addToCart(){let x=0;Object.values(cfgSel).forEach(v=>{const m=v.match(/\+\$(\d+)/);if(m)x+=parseInt(m[1])});cart.push({name:cfgItem.name,opts:Object.values(cfgSel).join(', '),qty:cfgQty,price:cfgItem.price+x});say(`✓ Added ${cfgQty}× ${cfgItem.name}`,300).then(()=>chips(['Browse more from this stall','View cart','Checkout'],c=>{if(c.includes('Browse'))selectStall(curStall);else if(c==='View cart')showCart();else doCheckout()}))}
+// === CART ===
+function showCart(){
+  if(!cart.length){say("Cart is empty.",300).then(()=>chips(['Help me choose food','🏠 Home'],c=>{if(c.includes('choose'))intentFood();else goHome()}));return}
+  const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  let h=`<div class="card"><div class="cbox"><div style="padding:12px 14px;font-size:14px;font-weight:700;border-bottom:1px solid var(--border)">🛒 Cart</div>`;
+  cart.forEach((item,i)=>{h+=`<div style="padding:10px 14px;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between"><div><div style="font-size:13px;font-weight:600">${item.name}</div><div style="font-size:11px;color:var(--text2)">${item.opts||'Standard'}</div></div><span style="font-size:13px;font-weight:700">$${item.price*item.qty}</span></div><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><button style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer" onclick="cartQty(${i},-1)">−</button><span style="font-size:12px;font-weight:700">${item.qty}</span><button style="width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:12px;cursor:pointer" onclick="cartQty(${i},1)">+</button><button style="margin-left:auto;font-size:11px;color:var(--err);background:none;border:none;cursor:pointer" onclick="cartRm(${i})">Remove</button></div></div>`});
+  h+=`<div style="padding:12px 14px;background:var(--bg);border-top:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700"><span>Subtotal</span><span>$${sub}</span></div></div>`;
+  h+=`<div style="display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--border)"><button class="btn btn-s" style="flex:1" onclick="selectStall(curStall)">+ Add more</button><button class="btn btn-p" style="flex:2" onclick="doCheckout()">Checkout →</button></div></div></div>`;
+  addEl(h)
+}
+function cartQty(i,d){cart[i].qty+=d;if(cart[i].qty<=0)cart.splice(i,1);showCart()}
+function cartRm(i){cart.splice(i,1);showCart()}
+
+// === CHECKOUT (promo + coins + payment) ===
+function doCheckout(){
+  if(!cart.length){say("Cart is empty!");return}
+  const sub=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  say(`Subtotal: $${sub}. Any promo code or Send Coins to apply?`,400).then(()=>{
+    chips(['Apply promo','Use Send Coins ($1.80)','Skip — proceed to pay'],c=>{
+      if(c.includes('promo')){say("Available: FOOD20 (20% off). Apply?",300).then(()=>chips(['Apply FOOD20','Skip'],x=>{if(x.includes('Apply'))say("✓ FOOD20 applied! 20% off.",300).then(()=>showPayment(sub,Math.round(sub*.2)));else showPayment(sub,0)}))}
+      else if(c.includes('Coins')){say("✓ $1.80 Send Coins applied.",300).then(()=>showPayment(sub,1.80))}
+      else showPayment(sub,0)
+    })
+  })
+}
+function showPayment(sub,disc){
+  const fee=3,total=sub+fee-disc;
+  say(`Final: $${total.toFixed(2)} (delivery $${fee}${disc?', discount -$'+disc.toFixed(2):''}). Ready to pay via PayNow?`,400).then(()=>{
+    chips(['Proceed to PayNow','Edit cart'],c=>{
+      if(c.includes('Edit'))showCart();
+      else{say("Scan the PayNow QR with your banking app:",500).then(()=>{
+        addEl(`<div class="card"><div class="cbox" style="padding:16px;text-align:center"><div style="font-size:22px;font-weight:700">$${total.toFixed(2)}</div><div style="width:130px;height:130px;margin:14px auto;background:var(--bg);border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--text2)">📱 PayNow QR</div><div style="padding:8px 12px;border-radius:8px;background:#FEF3C7;color:#92400E;font-size:12px;font-weight:600;margin:8px 0" id="pst">⏳ Waiting for payment</div><div style="font-size:11px;color:var(--text2);margin:8px 0">1. Open banking app → 2. Scan QR → 3. Confirm $${total.toFixed(2)}</div><div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-p" style="flex:1" onclick="refreshPay()">Refresh status</button><button class="btn btn-s" style="flex:1" onclick="say('Escalating to CX.',400)">Need help</button></div></div></div>`);
+      })}
+    })
+  })
+}
+let payC=0;
+function refreshPay(){payC++;const e=document.getElementById('pst');if(payC>=2){e.style.background='#D1FAE5';e.style.color='#065F46';e.textContent='✅ Payment confirmed';say("✅ Order placed! Here's your tracking:",600).then(()=>{cart=[];doTrack(false)})}else{e.textContent='⏳ Not received yet — complete payment and refresh.';say("Still waiting. Please complete the PayNow transfer.",300)}}
+// === ORDER TRACKING ===
+function doTrack(fromActive){
+  const order=ACTIVE_ORDER||{id:'SF'+Math.floor(1000+Math.random()*9000),stall:'Thai Orchid',emoji:'🍜',status:'Looking for a DB'};
+  say(`Tracking Order #${order.id}:`,300).then(()=>{
+    addEl(`<div class="card"><div class="cbox" style="padding:14px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px"><strong>#${order.id}</strong><span style="color:var(--text2)">${order.stall}</span></div><div class="tl"><div class="tl-s on now" id="tk1"><strong>Looking for a DB</strong><span> Searching...</span></div><div class="tl-s" id="tk2"><strong>DB on the way to stall</strong></div><div class="tl-s" id="tk3"><strong>DB on the way to you</strong></div><div class="tl-s" id="tk4"><strong>Delivered</strong><span> 🎉</span></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-s" style="flex:1;font-size:11px" onclick="say('Refreshing...',300).then(()=>say('Latest status: DB on the way to stall',300))">Refresh Status</button><button class="btn btn-s" style="flex:1;font-size:11px" onclick="intentHelp()">Get order help</button></div></div></div>`);
+    // Simulate tracking
+    let i=1;const steps=['tk2','tk3','tk4'];
+    const iv=setInterval(()=>{if(i>=steps.length){clearInterval(iv);setTimeout(()=>say("Delivered! 🎉 Enjoy your meal.",500).then(()=>chips(['🏠 Home','Get order help'],c=>{if(c.includes('Home'))goHome();else intentHelp()})),800);return}document.querySelector('.tl-s.now')?.classList.remove('now');document.getElementById(steps[i]).classList.add('on','now');i++},2500)
+  })
+}
+
+// === MY ORDERS ===
+function intentOrders(){
+  usr("📦 My orders");
+  say("Your orders:",300).then(()=>{
+    if(ACTIVE_ORDER){addEl(`<div style="padding-left:36px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;margin-bottom:4px">Active</div>`);addEl(`<div class="card" style="margin-bottom:8px"><div class="cbox" style="padding:12px;cursor:pointer;border-color:var(--ok)" onclick="doTrack(true)"><div style="display:flex;justify-content:space-between"><strong style="font-size:12px">#${ACTIVE_ORDER.id}</strong><span style="font-size:11px;color:var(--ok);font-weight:600">${ACTIVE_ORDER.status}</span></div><div style="font-size:12px;margin-top:4px">${ACTIVE_ORDER.emoji} ${ACTIVE_ORDER.stall} • $${ACTIVE_ORDER.total}</div></div></div>`)}
+    addEl(`<div style="padding-left:36px;font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;margin:8px 0 4px">Recent</div>`);
+    PAST_ORDERS.forEach(o=>{addEl(`<div class="card" style="margin-bottom:6px"><div class="cbox" style="padding:12px;cursor:pointer" onclick="selectPastOrder('${o.id}')"><div style="display:flex;justify-content:space-between"><strong style="font-size:12px">#${o.id}</strong><span style="font-size:11px;color:var(--ok)">${o.status}</span></div><div style="font-size:12px;margin-top:4px">${o.emoji} ${o.stall} • $${o.total} • ${o.date}</div></div></div>`)});
+    setTimeout(()=>chips(['🏠 Home'],()=>goHome()),200)
+  })
+}
+function selectPastOrder(id){const o=PAST_ORDERS.find(x=>x.id===id);usr(`#${o.id}`);chips(['🔄 Repeat order','🆘 Get order help'],c=>{if(c.includes('Repeat')){cart=o.items.map(i=>({...i}));curStall='s2';say("✓ Added to cart.",300).then(()=>doCheckout())}else doSupportFor(o)})}
+
+// === ORDER SUPPORT INTAKE ===
+// Get order help is the single customer-facing route into Customer Support
+function resetSupportDraft(){activeCaseId=null;supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null}}
+function intentHelp(){
+  usr("🆘 Get order help");
+  resetSupportDraft();
+  say("Which order is this about? I’ll collect the affected items and issue details before sending this to Customer Support.",350).then(()=>{
+    const all=[...(ACTIVE_ORDER?[ACTIVE_ORDER]:[]),...PAST_ORDERS];
+    chips(all.map(o=>`#${o.id} · ${o.stall}`),label=>{
+      const id=label.match(/#(\w+)/)[1];
+      supportDraft.order=all.find(x=>x.id===id);
+      openSupportItemModal(supportDraft.order);
+    })
+  })
+}
+function doSupportFor(order){
+  if(!order){intentHelp();return}
+  usr(`🆘 Get order help · #${order.id}`);
+  resetSupportDraft();
+  supportDraft.order=order;
+  say("Select all affected menu items. I’ll collect the issue details in the next step.",350).then(()=>openSupportItemModal(order))
+}
+function supportItemOptions(item){return (item?.opts||'').trim()||'No options recorded'}
+function openSupportItemModal(order){
+  if(!order){say("I couldn’t find that order. Please try again.",300);return}
+  const items=order.items&&order.items.length?order.items:[];
+  if(!items.length){say("This order has no menu items to select.",300);return}
+  closeSupportItemModal();
+  itemModalLastFocus=document.activeElement;
+  const itemHtml=items.map((item,index)=>`<label class="support-item-option"><input type="checkbox" name="supportItem" value="${index}" onchange="updateSupportItemSelection()"/><span class="support-item-copy"><strong>${item.qty||1}× ${item.name}</strong><span>Choices and options: ${supportItemOptions(item)}</span></span><span class="support-item-price">$${((item.price||0)*(item.qty||1)).toFixed(2)}</span></label>`).join('');
+  const html=`<div class="support-modal-overlay" id="supportItemModal"><section class="support-dialog" role="dialog" aria-modal="true" aria-labelledby="supportItemTitle" aria-describedby="supportItemDescription"><header class="support-dialog-head"><div><h2 id="supportItemTitle">Which menu items are affected?</h2><p id="supportItemDescription">Order #${order.id} · ${order.stall}. Select one or more items, including their recorded choices and options.</p></div><button type="button" class="support-dialog-close" onclick="closeSupportItemModal()" aria-label="Close affected items">×</button></header><form onsubmit="event.preventDefault();confirmSupportItems()"><div class="support-item-list" role="group" aria-label="Menu items in this order"><label class="support-select-all"><input type="checkbox" id="supportSelectAll" onchange="toggleSupportSelectAll(this.checked)"/> <span>Select all menu items</span></label>${itemHtml}</div><p class="support-dialog-error" id="supportItemError" role="alert" hidden>Select at least one affected menu item to continue</p><div class="support-dialog-foot"><button type="button" class="btn btn-s" onclick="closeSupportItemModal()">Cancel</button><button type="submit" class="btn btn-p">Continue</button></div></form></section></div>`;
+  phone.insertAdjacentHTML('beforeend',html);
+  const modal=document.getElementById('supportItemModal');
+  requestAnimationFrame(()=>modal?.querySelector('input[name="supportItem"]')?.focus());
+}
+function updateSupportItemSelection(){
+  const boxes=[...document.querySelectorAll('#supportItemModal input[name="supportItem"]')];
+  const selected=boxes.filter(x=>x.checked);
+  const all=document.getElementById('supportSelectAll');
+  if(all){all.checked=boxes.length>0&&selected.length===boxes.length;all.indeterminate=selected.length>0&&selected.length<boxes.length}
+  const error=document.getElementById('supportItemError');if(error&&selected.length)error.hidden=true;
+}
+function toggleSupportSelectAll(checked){document.querySelectorAll('#supportItemModal input[name="supportItem"]').forEach(input=>{input.checked=checked});updateSupportItemSelection()}
+function closeSupportItemModal(){
+  document.getElementById('supportItemModal')?.remove();
+  if(itemModalLastFocus&&document.contains(itemModalLastFocus)){itemModalLastFocus.focus()}
+  itemModalLastFocus=null;
+}
+function confirmSupportItems(){
+  const order=supportDraft.order,items=order?.items||[];
+  const indexes=[...document.querySelectorAll('#supportItemModal input[name="supportItem"]:checked')].map(input=>Number(input.value));
+  if(!indexes.length){const error=document.getElementById('supportItemError');if(error)error.hidden=false;document.querySelector('#supportItemModal input[name="supportItem"]')?.focus();return}
+  supportDraft.affectedItems=indexes;
+  supportDraft.items=indexes.map(index=>({...items[index],index,options:supportItemOptions(items[index])}));
+  supportDraft.item=supportDraft.items[0]||null;
+  supportDraft.options=supportDraft.items.map(item=>`${item.name}: ${item.options}`).join(' · ');
+  const selectedLabel=supportDraft.items.map(item=>`${item.qty||1}× ${item.name}`).join(' · ');
+  closeSupportItemModal();
+  usr(`🍽️ ${selectedLabel}`);
+  say("What needs fixing with this order?",300).then(askSupportDetails)
+}
+function askSupportDetails(){
+  const selected=supportDraft.items.map(item=>`${item.qty||1}× ${item.name} (${item.options})`).join('<br>');
+  addEl(`<div class="card"><div class="cbox support-intake"><h4>Customer Support details</h4><div class="support-selected-items"><strong>Affected menu items</strong><br>${selected}</div><fieldset><legend>Issue type <span style="color:var(--err)">*</span></legend><div class="support-issue-grid">${['Order taking too long','Missing item','Wrong item','Payment issue','Cancel order','Refund request','Other'].map(issue=>`<label class="support-issue-option"><input type="radio" name="supportIssue" value="${issue}" onchange="selectSupportIssue(this.value)"/> <span>${issue}</span></label>`).join('')}</div></fieldset><p class="intake-error" id="supportIssueError" role="alert" hidden>Select an issue type to continue</p><textarea id="supportDescription" aria-label="Additional description, optional" placeholder="Describe what happened (optional)"></textarea><div class="attachment" id="supportAttachment"><span>📎</span><span>Screenshot or photo (optional)</span><button type="button" id="supportAttachmentBtn" onclick="toggleSupportAttachment()">Add screenshot</button></div><div class="intake-actions"><button type="button" class="btn btn-p" style="width:100%" onclick="submitSupportDetails()">Submit to Customer Support</button></div></div></div>`)
+}
+function selectSupportIssue(issue){supportDraft.issue=issue;const error=document.getElementById('supportIssueError');if(error)error.hidden=true}
+function toggleSupportAttachment(){
+  const row=document.getElementById('supportAttachment');
+  if(!row)return;
+  const added=!supportDraft.attachment;
+  supportDraft.attachment=added?'Receipt_'+(supportDraft.order?.id||'order')+'.jpg':'';
+  row.innerHTML=added?`<span>🖼️</span><span>Screenshot or photo</span><span class="file">${supportDraft.attachment} ✓</span><button type="button" id="supportAttachmentBtn" onclick="toggleSupportAttachment()">Remove screenshot</button>`:`<span>📎</span><span>Screenshot or photo (optional)</span><button type="button" id="supportAttachmentBtn" onclick="toggleSupportAttachment()">Add screenshot</button>`;
+}
+function submitSupportDetails(){
+  if(!supportDraft.issue){const error=document.getElementById('supportIssueError');if(error)error.hidden=false;document.querySelector('input[name="supportIssue"]')?.focus();return}
+  supportDraft.description=(document.getElementById('supportDescription')?.value||'').trim();
+  document.getElementById('supportDescription')?.closest('.card')?.remove();
+  usr(`📝 ${supportDraft.issue}${supportDraft.description?` · ${supportDraft.description}`:''}`);
+  if(supportDraft.attachment)addEl(`<div class="card"><div class="cbox" style="padding:9px 12px;font-size:11px;color:var(--text2)">🖼️ Attached <strong style="color:var(--text)">${supportDraft.attachment}</strong></div></div>`);
+  createCaseId();
+}
+function supportOrderDate(o){return o.date||o.time||o.status||'Order history'}
+function allocateCaseId(){let id;do{id=`CX-${caseSequence++}`}while(SUPPORT_CASES[id]);return id}
+function createCaseId(){
+  if(supportDraft.caseId&&SUPPORT_CASES[supportDraft.caseId]){activeCaseId=supportDraft.caseId;switchToSupport(activeCaseId);return}
+  activeCaseId=allocateCaseId();
+  supportDraft.caseId=activeCaseId;
+  const d=supportDraft,o=d.order||{},intakeTranscript=ch.innerHTML;
+  const selectedItems=d.items?.map(item=>({index:item.index,name:item.name,qty:item.qty||1,options:item.options||supportItemOptions(item)}))||[];
+  SUPPORT_CASES[activeCaseId]={id:activeCaseId,status:'Submitted',resolved:false,title:d.issue||'Order issue',order:o,issue:d.issue,item:d.items?.map(item=>item.name).join(', ')||d.item?.name||'',items:selectedItems,options:d.options||'',description:d.description||'',attachment:d.attachment||'',created:'Today · 1:14 pm',lastUpdate:'Today · 1:14 pm',agent:'',agentJoined:false,messages:[],internalContext:{sendyTranscript:intakeTranscript,order:o,items:selectedItems,issue:d.issue,description:d.description||'',attachment:d.attachment||''}};
+  sendySnapshot=intakeTranscript;
+  switchToSupport(activeCaseId);
+}
+function switchToSupport(caseId){
+  const record=SUPPORT_CASES[caseId];
+  if(!record)return;
+  activeCaseId=caseId;
+  setSupportChrome(!!record.resolved,record);
+  ch.className='chat support-chat';
+  renderSupportCase(record);
+}
+function supportEsc(text){return String(text??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function supportMessageHtml(message){
+  const isUser=message.sender==='user';
+  const name=isUser?'You':`${supportEsc(message.name||'Customer Support')} · Customer Support`;
+  const avatar=isUser?'T':supportEsc((message.name||'S').slice(0,1).toUpperCase());
+  const safeText=supportEsc(message.text||'').replace(/\n/g,'<br>');
+  return `<div class="support-message${isUser?' user':''}">${isUser?`<span class="support-wrap"><span class="support-name">${name}</span><span class="support-bubble">${safeText}</span><span class="support-time">${supportEsc(message.time||'Now')}</span></span><span class="support-avatar user">${avatar}</span>`:`<span class="support-avatar">${avatar}</span><span class="support-wrap"><span class="support-name">${name}</span><span class="support-bubble">${safeText}</span><span class="support-time">${supportEsc(message.time||'Now')}</span></span>`}</div>`;
+}
+function renderSupportCase(record){
+  const o=record.order||{};
+  const statusLabel=record.resolved?'Resolved':record.agentJoined?'Support reviewing':'In queue';
+  let h=`<div class="support-case-head"><div class="support-meta"><span>CaseID <strong>${supportEsc(record.id)}</strong></span><span>Order ID <strong>#${supportEsc(o.id||'—')}</strong></span><span>Status <strong>${statusLabel}</strong></span></div></div>`;
+  h+=`<div class="support-day">${record.resolved?'Case closed':'Today · 1:14 pm'}</div>`;
+  if(record.resolved){
+    h+=(record.messages||[]).map(supportMessageHtml).join('');
+    h+=`<div class="support-event"><strong>Case resolved · 1:30 pm</strong><span>This conversation is read-only. If you need help with a new issue, <button type="button" class="support-text-link" onclick="goHome()">start a new Get order help case in Sendy</button>.</span></div>`;
+  }else{
+    h+=`<div class="support-event"><strong>CaseID ${supportEsc(record.id)} was created</strong>You are currently in the queue. A Customer Support agent will attend to you shortly.</div>`;
+    h+=`<div class="support-divider" role="status"><span>Sendy has left this chat</span></div>`;
+    if(!record.agentJoined)h+=`<div class="support-awaiting">Awaiting a Customer Support agent</div>`;
+    h+=(record.messages||[]).map(supportMessageHtml).join('');
+  }
+  ch.innerHTML=h;
+  scr();
+}
+function supportSend(){
+  const input=document.getElementById('caseIpt'),text=input?.value.trim();
+  if(!text||!activeCaseId)return;
+  const record=SUPPORT_CASES[activeCaseId];
+  if(!record||record.resolved)return;
+  input.value='';
+  record.messages=record.messages||[];
+  record.messages.push({sender:'user',name:'You',text,time:'Now'});
+  renderSupportCase(record);
+  setTimeout(()=>{
+    if(!SUPPORT_CASES[record.id]||record.resolved)return;
+    if(!record.agentJoined){record.agent='Mira';record.agentJoined=true;record.status='Support reviewing'}
+    record.lastUpdate='Now';
+    record.messages.push({sender:'agent',name:record.agent||'Customer Support',text:`Thanks, Tina. I’ve added that to ${record.id} and will review it with the order details.`,time:'Now'});
+    if(activeCaseId===record.id&&appMode==='support'){
+      setSupportChrome(false,record);
+      renderSupportCase(record);
+    }
+  },500)
+}
+function returnToTicketDrawer(){
+  if(appMode==='support'){openTicketDrawer();return}
+  returnToSendy();
+  setTimeout(openTicketDrawer,30);
+}
+function closeTicketDrawer(){
+  document.getElementById('ticketDrawer')?.remove();
+  if(drawerLastFocus&&document.contains(drawerLastFocus)){drawerLastFocus.focus()}
+  drawerLastFocus=null;
+}
+function openSupportCase(caseId){
+  closeTicketDrawer();
+  // Capture the latest Sendy ordering state when opening a case from Page 1
+  if(appMode==='sendy')sendySnapshot=ch.innerHTML;
+  switchToSupport(caseId);
+}
+function openTicketDrawer(){
+  closeTicketDrawer();
+  drawerLastFocus=document.activeElement;
+  const fromSupport=appMode==='support';
+  const records=Object.values(SUPPORT_CASES);
+  const openCases=records.filter(x=>!x.resolved).reverse();
+  const resolvedCases=records.filter(x=>x.resolved).reverse();
+  const supportItemSummary=record=>record.items?.length?record.items.map(item=>`${item.qty||1}× ${item.name}`).join(', '):(record.item||'');
+  const ticketHtml=record=>`<button class="drawer-ticket${record.resolved?' resolved':' open'}" onclick="openSupportCase('${record.id}')"><div class="drawer-ticket-top"><span class="drawer-ticket-icon">${record.resolved?'✓':'📦'}</span><span class="drawer-ticket-copy"><strong>${record.title||record.issue||'Order issue'}${supportItemSummary(record)?` · ${supportItemSummary(record)}`:''}</strong><span>${record.id} · #${record.order?.id||'—'} · ${record.order?.stall||'—'}</span></span><span class="drawer-ticket-id">›</span></div><div class="drawer-ticket-meta"><span>Last update, ${record.lastUpdate||record.created||'Today'}</span><span class="drawer-ticket-status${record.resolved?' resolved':''}">${record.resolved?'Read-only':'Support reviewing'}</span></div></button>`;
+  const openHtml=`<div class="drawer-section"><div class="drawer-section-title"><span>Open</span><span>${openCases.length} case${openCases.length===1?'':'s'}</span></div>${openCases.length?openCases.map(ticketHtml).join(''):'<p class="drawer-note">No open cases</p>'}</div>`;
+  const resolvedHtml=`<div class="drawer-section"><div class="drawer-section-title"><span>Resolved</span><span>${resolvedCases.length} case${resolvedCases.length===1?'':'s'}</span></div>${resolvedCases.map(ticketHtml).join('')}</div>`;
+  const sendyReturn=fromSupport?`<button type="button" class="drawer-return" onclick="closeTicketDrawer();returnToSendy()">‹ Sendy</button>`:'';
+  const html=`<div class="drawer-overlay" id="ticketDrawer"><button class="drawer-scrim" onclick="closeTicketDrawer()" aria-label="Close Support tickets"></button><aside class="ticket-drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle"><header class="drawer-head"><div class="drawer-head-left"><div class="av" style="width:32px;height:32px;background:#E7EDF3;color:var(--sec);font-size:13px">☏</div><div><h3 id="drawerTitle">Support tickets</h3><small>Your current and past cases</small></div></div><div style="display:flex;align-items:center;gap:6px">${sendyReturn}<button class="drawer-close" onclick="closeTicketDrawer()" aria-label="Close Support tickets">×</button></div></header><div class="drawer-content"><p class="drawer-intro">Review existing CaseIDs here. New issues always start with Get order help in Sendy.</p>${openHtml}${resolvedHtml}<p class="drawer-note">${fromSupport?'Select a case to open its Customer Support conversation.':'Close this drawer to continue ordering in Sendy.'}</p></div></aside></div>`;
+  phone.insertAdjacentHTML('beforeend',html);
+  requestAnimationFrame(()=>document.querySelector('#ticketDrawer .drawer-close')?.focus());
+}
+
+// === ASK ABOUT SENDFOOD ===
+function intentAsk(){usr("❓ Ask about SendFood");say("What would you like to know?",300).then(()=>chips(['Delivery fees','Coverage area','Payment methods','Promos & Send Coins','Account & address','Other'],c=>{const a={'Delivery fees':'Delivery fees range from $2-$5 depending on distance from the stall to your location.','Coverage area':'SendFood delivers within a 5 km radius of each stall in Singapore.','Payment methods':'Currently PayNow (QR). Cards and other methods coming soon.','Promos & Send Coins':'Apply promo codes at checkout. Send Coins: 100 coins = $1, toggle on/off before payment.','Account & address':'Update your address using a 6-digit postal code. Contact support for account changes.','Other':'Type your question below and I\'ll check our Knowledge Base.'};say(a[c]||"I'll look into that.",400).then(()=>{addFb();setTimeout(()=>chips(['Ask more','🏠 Home'],x=>{if(x.includes('more'))intentAsk();else goHome()}),200)})}))}
+
+// === FREE TEXT ROUTING ===
+function faqAnswerFor(q){
+  if(/\b(issue|problem|missing|wrong|refund|cancel|complaint|support|not received)\b/.test(q))return '';
+  if(/\b(delivery fee|delivery fees|delivery charge|delivery charges)\b/.test(q))return 'Delivery fees range from $2-$5 depending on distance from the stall to your location.';
+  if(/\b(coverage|deliver.*area|delivery area)\b/.test(q))return 'SendFood delivers within a 5 km radius of each stall in Singapore.';
+  if(/\b(payment|paynow|card|cards)\b/.test(q))return 'Currently PayNow (QR). Cards and other payment methods are coming soon.';
+  if(/\b(promo|promos|send coins|sendcoin|coins)\b/.test(q))return 'Apply promo codes at checkout. Send Coins can be used at 100 coins = $1, and can be toggled before payment.';
+  if(/\b(account|change.*address|update.*address|postal)\b/.test(q))return 'You can update your delivery address using a 6-digit postal code. Contact Customer Support for account changes.';
+  return '';
+}
+function send(){const inp=document.getElementById('ipt');const t=inp.value.trim();if(!t)return;inp.value='';usr(t);const q=t.toLowerCase();const faq=faqAnswerFor(q);if(faq){say(faq,400).then(addFb);return}
+if(/\b(food|eat|hungry|recommend|choose|order)\b/.test(q)&&!/\b(my order|track|help|support)\b/.test(q))intentFood();
+else if(/\b(browse|stall|show me)\b/.test(q))intentFood();
+else if(/\b(help|support|issue|missing|wrong|refund|cancel)\b/.test(q))intentHelp();
+else if(/\b(track|where.*delivery|my order|status)\b/.test(q)){if(ACTIVE_ORDER)doTrack(true);else intentOrders()}
+else if(/\b(fee|payment|coverage|promo|coin|account)\b/.test(q))intentAsk();
+else if(/\b(home|back|start)\b/.test(q))goHome();
+else if(/\b(cart|checkout)\b/.test(q))showCart();
+else say("I can help with food recommendations, orders, support, or SendFood questions. What do you need?",400)}
+
+// === INIT ===
+showHome();
+</script>
+</body>
+</html>
