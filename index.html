@@ -106,7 +106,7 @@ const PAST_ORDERS=[
 ];
 let cart=[],curStall=null,addrOk=false,cfgItem=null,cfgQty=1,cfgSel={};
 let appMode='sendy',sendySnapshot='',activeCaseId=null,caseSequence=10482,supportAwaiting=null,trackTimer=null,trackToken=null;
-let supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null};
+let supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null,probes:[],pendingProbe:'',followups:[]};
 let itemModalLastFocus=null,drawerLastFocus=null;
 const SUPPORT_CASES={
   'CX-10391':{id:'CX-10391',status:'Resolved',resolved:true,title:'Delivery fee query',order:{id:'SF4712',stall:'Thai Orchid',emoji:'🍜',date:'16 Aug',total:4},issue:'Delivery fee query',item:'',options:'',description:'Asked why the delivery fee changed for a previous order.',attachment:'',created:'16 Aug',lastUpdate:'16 Aug',agent:'Mira',agentJoined:true,messages:[{sender:'agent',name:'Mira',text:'The delivery fee for this order has been reviewed and the case is now resolved.',time:'1:28 pm'},{sender:'user',name:'You',text:'That resolves it, thank you.',time:'1:29 pm'}]},
@@ -402,7 +402,7 @@ function selectPastOrder(id){const o=PAST_ORDERS.find(x=>x.id===id);usr(`#${o.id
 
 // === ORDER SUPPORT INTAKE ===
 // Get order help is the single customer-facing route into Customer Support
-function resetSupportDraft(){activeCaseId=null;supportAwaiting=null;stopTracking();supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null}}
+function resetSupportDraft(){activeCaseId=null;supportAwaiting=null;stopTracking();supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null,probes:[],pendingProbe:'',followups:[]}}
 function intentHelp(){
   usr("🆘 Get order help");
   resetSupportDraft();
@@ -428,8 +428,21 @@ function askSupportDescription(){
   supportAwaiting='description';
   say(`Got it — #${o.id} · ${o.stall}. Tell me what happened in your own words.`,350)
 }
+// Sendy asks these before escalating, so Customer Support inherits real context
+const SUPPORT_PROBES={
+  'Food safety':['When did you eat it, and when did you start feeling unwell?','How are you feeling now — have you needed to see a doctor?'],
+  'Missing item':['Was everything else in the order correct?'],
+  'Wrong item':['What did you get instead of what you ordered?'],
+  'Damaged or spilled':['How bad is it — is any of it still edible?'],
+  'Order taking too long':['How long has it been since you placed the order?'],
+  'Payment issue':['How much were you charged, and how many times?'],
+  'Cancel order':['Has the Delivery Buddy already collected it from the stall?'],
+  'Refund request':['What would you like to happen — a refund, a redelivery, or something else?'],
+  'Other':['Can you tell me a bit more about what went wrong?']
+};
 function classifySupportIssue(text){
   const q=text.toLowerCase();
+  if(/nausea|nauseous|queasy|\bsick\b|\bill\b|unwell|vomit|throw(ing)? up|food pois|diarrh|stomach|allerg|rash|swollen|rancid|mould|mold|expired|undercooked|\braw\b|tasted (off|bad|sour|funny)|gone off/.test(q))return 'Food safety';
   if(/\bcancel\b|changed my mind/.test(q))return 'Cancel order';
   if(/\brefund\b|money back|reimburse|compensat/.test(q))return 'Refund request';
   if(/\bmissing\b|didn.?t (get|receive|arrive)|never (came|arrived)|left out|forgot/.test(q))return 'Missing item';
@@ -440,18 +453,40 @@ function classifySupportIssue(text){
   return 'Other';
 }
 function isItemScopedIssue(issue,desc){
-  if(['Missing item','Wrong item','Damaged or spilled','Refund request'].includes(issue))return true;
+  if(['Food safety','Missing item','Wrong item','Damaged or spilled','Refund request'].includes(issue))return true;
   return issue==='Other'&&/\b(item|dish|food|meal|burger|pizza|fries|noodle|rice|salad|drink|coffee|tea|bread)\b/.test(desc.toLowerCase())
 }
-function issueNeedsEvidence(issue){return ['Missing item','Wrong item','Damaged or spilled','Payment issue'].includes(issue)}
+function issueNeedsEvidence(issue){return ['Food safety','Missing item','Wrong item','Damaged or spilled','Payment issue'].includes(issue)}
+function supportReflection(issue){
+  if(issue==='Food safety')return "I’m sorry to hear that — please see a doctor if you’re feeling unwell. I’ll raise this with Customer Support as a food safety report, and a few details will help them act on it.";
+  if(issue==='Other')return "Thanks, I’ve noted that down. A couple of quick questions so Customer Support has the full picture.";
+  return `Thanks — I’ve logged this as <strong>${issue.toLowerCase()}</strong>. One quick question so Customer Support has what they need.`;
+}
 function receiveSupportDescription(text){
   supportDraft.description=text;
   supportDraft.issue=classifySupportIssue(text);
-  const line=supportDraft.issue==='Other'?"Thanks, I’ve noted that down.":`Thanks — I’ve logged this as <strong>${supportDraft.issue.toLowerCase()}</strong>.`;
-  say(line,350).then(()=>{
-    if(isItemScopedIssue(supportDraft.issue,text)){openSupportItemModal(supportDraft.order);return}
-    askSupportEvidence()
-  })
+  supportDraft.probes=(SUPPORT_PROBES[supportDraft.issue]||SUPPORT_PROBES['Other']).slice();
+  say(supportReflection(supportDraft.issue),400).then(askNextProbe)
+}
+function askNextProbe(){
+  if(!supportDraft.probes.length){continueAfterProbes();return}
+  supportDraft.pendingProbe=supportDraft.probes.shift();
+  supportAwaiting='probe';
+  say(supportDraft.pendingProbe,350)
+}
+function receiveProbeAnswer(text){
+  supportDraft.followups.push({q:supportDraft.pendingProbe,a:text});
+  supportDraft.pendingProbe='';
+  // A vague opener often becomes classifiable once the follow-up fills it in
+  if(supportDraft.issue==='Other'){
+    const better=classifySupportIssue(`${supportDraft.description} ${text}`);
+    if(better!=='Other')supportDraft.issue=better;
+  }
+  askNextProbe()
+}
+function continueAfterProbes(){
+  if(isItemScopedIssue(supportDraft.issue,supportDraft.description)){openSupportItemModal(supportDraft.order);return}
+  askSupportEvidence()
 }
 function askSupportEvidence(){
   if(!issueNeedsEvidence(supportDraft.issue)){showSupportReview();return}
@@ -464,7 +499,7 @@ function showSupportReview(){
   const o=supportDraft.order||{};
   const items=supportDraft.items.length?`<div class="support-selected-items"><strong>Affected menu items</strong><br>${supportDraft.items.map(i=>`${i.qty||1}× ${supportEsc(i.name)} (${supportEsc(i.options)})`).join('<br>')}</div>`:'';
   const attach=supportDraft.attachment?`<div class="review-row"><span>Attachment</span><br>🖼️ <strong>${supportEsc(supportDraft.attachment)}</strong></div>`:'';
-  addEl(`<div class="card"><div class="cbox support-intake" id="supportReviewCard"><h4>Customer Support details</h4>${items}<div class="review-row"><span>Order</span><br><strong>#${supportEsc(o.id)} · ${supportEsc(o.stall)}</strong></div><div class="review-row"><span>Issue</span><br><strong>${supportEsc(supportDraft.issue)}</strong></div><div class="review-row"><span>What happened</span><br>${supportEsc(supportDraft.description)}</div>${attach}<div class="intake-actions"><button type="button" class="btn btn-p" style="width:100%" onclick="submitSupportDetails()">Submit to Customer Support</button></div></div></div>`)
+  addEl(`<div class="card"><div class="cbox support-intake" id="supportReviewCard"><h4>Customer Support details</h4>${items}<div class="review-row"><span>Order</span><br><strong>#${supportEsc(o.id)} · ${supportEsc(o.stall)}</strong></div><div class="review-row"><span>Issue</span><br><strong>${supportEsc(supportDraft.issue)}</strong></div><div class="review-row"><span>What happened</span><br>${supportEsc(supportDraft.description)}</div>${supportDraft.followups.map(f=>`<div class="review-row"><span>${supportEsc(f.q)}</span><br>${supportEsc(f.a)}</div>`).join('')}${attach}<div class="intake-actions"><button type="button" class="btn btn-p" style="width:100%" onclick="submitSupportDetails()">Submit to Customer Support</button></div></div></div>`)
 }
 function supportItemOptions(item){return (item?.opts||'').trim()||'No options recorded'}
 function openSupportItemModal(order){
@@ -526,7 +561,7 @@ function createCaseId(){
   supportDraft.caseId=activeCaseId;
   const d=supportDraft,o=d.order||{},intakeTranscript=ch.innerHTML;
   const selectedItems=d.items?.map(item=>({index:item.index,name:item.name,qty:item.qty||1,options:item.options||supportItemOptions(item)}))||[];
-  SUPPORT_CASES[activeCaseId]={id:activeCaseId,status:'Submitted',resolved:false,title:d.issue||'Order issue',order:o,issue:d.issue,item:d.items?.map(item=>item.name).join(', ')||d.item?.name||'',items:selectedItems,options:d.options||'',description:d.description||'',attachment:d.attachment||'',created:'Today · 1:14 pm',lastUpdate:'Today · 1:14 pm',agent:'',agentJoined:false,messages:[],internalContext:{sendyTranscript:intakeTranscript,order:o,items:selectedItems,issue:d.issue,description:d.description||'',attachment:d.attachment||''}};
+  SUPPORT_CASES[activeCaseId]={id:activeCaseId,status:'Submitted',resolved:false,title:d.issue||'Order issue',order:o,issue:d.issue,item:d.items?.map(item=>item.name).join(', ')||d.item?.name||'',items:selectedItems,options:d.options||'',description:d.description||'',attachment:d.attachment||'',created:'Today · 1:14 pm',lastUpdate:'Today · 1:14 pm',agent:'',agentJoined:false,messages:[],followups:d.followups||[],internalContext:{sendyTranscript:intakeTranscript,order:o,items:selectedItems,issue:d.issue,description:d.description||'',followups:d.followups||[],attachment:d.attachment||''}};
   sendySnapshot=intakeTranscript;
   switchToSupport(activeCaseId);
 }
@@ -622,7 +657,7 @@ function intentAsk(){usr("❓ Ask about SendFood");say("What would you like to k
 
 // === FREE TEXT ROUTING ===
 // Trouble language always beats FAQ language: the composer is now the main route into support
-const SUPPORT_TRIGGER=/\b(issue|problem|complaint|complain|missing|wrong|refund|cancel|spill|spilled|damaged|soggy|stale|inedible|overcharged|charged twice|double charged|not received|never arrived|didn.?t arrive|didn.?t get|late|delayed|too long|still waiting|failed|declined|stuck)\b/;
+const SUPPORT_TRIGGER=/\b(issue|problem|complaint|complain|missing|wrong|refund|cancel|spill|spilled|damaged|soggy|stale|inedible|overcharged|charged twice|double charged|not received|never arrived|didn.?t arrive|didn.?t get|late|delayed|too long|still waiting|failed|declined|stuck|nausea|nauseous|queasy|sick|ill|unwell|vomit|food pois|diarrh|stomach|allerg|rash|rancid|mouldy|moldy|expired|undercooked|raw|tasted)\b/;
 const FOOD_TRIGGER=/\b(food|eat|hungry|recommend|choose|craving|browse|stall|menu|show me)\b/;
 function faqAnswerFor(q){
   if(SUPPORT_TRIGGER.test(q))return '';
@@ -635,6 +670,7 @@ function faqAnswerFor(q){
 }
 function send(){const inp=document.getElementById('ipt');const t=inp.value.trim();if(!t)return;inp.value='';usr(t);
 if(supportAwaiting==='description'){supportAwaiting=null;receiveSupportDescription(t);return}
+if(supportAwaiting==='probe'){supportAwaiting=null;receiveProbeAnswer(t);return}
 const q=t.toLowerCase();
 if(SUPPORT_TRIGGER.test(q)){intentHelp();return}
 const faq=faqAnswerFor(q);if(faq){say(faq,400).then(addFb);return}
@@ -644,7 +680,7 @@ else if(/\b(track|where.*delivery|my order|status)\b/.test(q)){if(ACTIVE_ORDER)d
 else if(/\b(fee|payment|coverage|promo|coin|account)\b/.test(q))intentAsk();
 else if(/\b(home|back|start)\b/.test(q))goHome();
 else if(/\b(cart|checkout)\b/.test(q))showCart();
-else say("I can help with food recommendations, orders, support, or SendFood questions. What do you need?",400)}
+else say("Tell me a bit more and I’ll point you the right way — are you looking to order something, or is this about an order you’ve already placed?",400)}
 
 // === INIT ===
 showHome();
