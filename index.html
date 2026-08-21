@@ -105,7 +105,7 @@ const PAST_ORDERS=[
 {id:'SF4790',stall:'Burger Barn',emoji:'🍔',status:'Delivered',date:'Yesterday, 7:12 PM',total:26,items:[{name:'Smash Burger',opts:'Large, Bacon',qty:1,price:17},{name:'Loaded Fries',opts:'Large',qty:1,price:10}]}
 ];
 let cart=[],curStall=null,addrOk=false,cfgItem=null,cfgQty=1,cfgSel={};
-let appMode='sendy',sendySnapshot='',activeCaseId=null,caseSequence=10482,supportAwaiting=null;
+let appMode='sendy',sendySnapshot='',activeCaseId=null,caseSequence=10482,supportAwaiting=null,trackTimer=null,trackToken=null;
 let supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null};
 let itemModalLastFocus=null,drawerLastFocus=null;
 const SUPPORT_CASES={
@@ -165,7 +165,7 @@ function setSupportChrome(resolved,record){
 function goHome(){
   sendySnapshot='';
   activeCaseId=null;
-  supportAwaiting=null;
+  resetSupportDraft();
   setSendyChrome();
   ch.className='chat';
   ch.innerHTML='';
@@ -196,7 +196,7 @@ function showHome(){
       </div>
     </div></div>`)
   }
-  say(`Hi ${USER.name}, what can I help you with today? Just type below — an order issue, a question about SendFood, or what you feel like eating.`,300).then(()=>{
+  say(`Hi ${USER.name}! Tell me what you feel like eating and I’ll find a stall and get your order placed. Anything else you need, just type it below.`,300).then(()=>{
     addEl(`<div style="padding-left:36px;animation:up .3s;max-width:92%;display:flex;flex-direction:column;gap:6px">
       <div style="display:flex;gap:6px"><div class="hp" onclick="intentFood()"><span>🍽️</span><span>Help me choose food</span></div><div class="hp" onclick="intentOrders()"><span>📦</span><span>My orders</span></div></div>
     </div>`)
@@ -365,13 +365,26 @@ function showPayment(sub,disc){
 let payC=0;
 function refreshPay(){payC++;const e=document.getElementById('pst');if(payC>=2){e.style.background='#D1FAE5';e.style.color='#065F46';e.textContent='✅ Payment confirmed';say("✅ Order placed! Here's your tracking:",600).then(()=>{cart=[];doTrack(false)})}else{e.textContent='⏳ Not received yet — complete payment and refresh.';say("Still waiting. Please complete the PayNow transfer.",300)}}
 // === ORDER TRACKING ===
+// Navigating away cancels the run, so its pending "Delivered!" never fires
+function stopTracking(){if(trackTimer){clearInterval(trackTimer);trackTimer=null}trackToken=null}
 function doTrack(fromActive){
   const order=ACTIVE_ORDER||{id:'SF'+Math.floor(1000+Math.random()*9000),stall:'Thai Orchid',emoji:'🍜',status:'Looking for a DB'};
   say(`Tracking Order #${order.id}:`,300).then(()=>{
     addEl(`<div class="card"><div class="cbox" style="padding:14px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px"><strong>#${order.id}</strong><span style="color:var(--text2)">${order.stall}</span></div><div class="tl"><div class="tl-s on now" id="tk1"><strong>Looking for a DB</strong><span> Searching...</span></div><div class="tl-s" id="tk2"><strong>DB on the way to stall</strong></div><div class="tl-s" id="tk3"><strong>DB on the way to you</strong></div><div class="tl-s" id="tk4"><strong>Delivered</strong><span> 🎉</span></div></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn btn-s" style="flex:1;font-size:11px" onclick="say('Refreshing...',300).then(()=>say('Latest status: DB on the way to stall',300))">Refresh Status</button><button class="btn btn-s" style="flex:1;font-size:11px" onclick="intentHelp()">Get order help</button></div></div></div>`);
-    // Simulate tracking
-    let i=1;const steps=['tk2','tk3','tk4'];
-    const iv=setInterval(()=>{if(i>=steps.length){clearInterval(iv);setTimeout(()=>say("Delivered! 🎉 Enjoy your meal.",500).then(()=>chips(['🏠 Home','Get order help'],c=>{if(c.includes('Home'))goHome();else intentHelp()})),800);return}document.querySelector('.tl-s.now')?.classList.remove('now');document.getElementById(steps[i]).classList.add('on','now');i++},2500)
+    // Simulate tracking. The timer must stop the moment the user leaves this card,
+    // or a stray "Delivered!" lands in the middle of whatever they moved on to.
+    stopTracking();
+    const token={};trackToken=token;
+    let i=0;const steps=['tk2','tk3','tk4'];
+    trackTimer=setInterval(()=>{
+      const step=document.getElementById(steps[i]);
+      if(!step){stopTracking();return}
+      document.querySelector('.tl-s.now')?.classList.remove('now');
+      step.classList.add('on','now');
+      if(++i<steps.length)return;
+      clearInterval(trackTimer);trackTimer=null;
+      setTimeout(()=>{if(trackToken!==token)return;say("Delivered! 🎉 Enjoy your meal.",500).then(()=>chips(['🏠 Home','Get order help'],c=>{if(c.includes('Home'))goHome();else intentHelp()}))},800)
+    },2500)
   })
 }
 
@@ -389,7 +402,7 @@ function selectPastOrder(id){const o=PAST_ORDERS.find(x=>x.id===id);usr(`#${o.id
 
 // === ORDER SUPPORT INTAKE ===
 // Get order help is the single customer-facing route into Customer Support
-function resetSupportDraft(){activeCaseId=null;supportAwaiting=null;supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null}}
+function resetSupportDraft(){activeCaseId=null;supportAwaiting=null;stopTracking();supportDraft={order:null,affectedItems:[],items:[],item:null,options:'',issue:'',description:'',attachment:'',caseId:null}}
 function intentHelp(){
   usr("🆘 Get order help");
   resetSupportDraft();
@@ -521,6 +534,7 @@ function switchToSupport(caseId){
   const record=SUPPORT_CASES[caseId];
   if(!record)return;
   activeCaseId=caseId;
+  stopTracking();
   setSupportChrome(!!record.resolved,record);
   ch.className='chat support-chat';
   renderSupportCase(record);
